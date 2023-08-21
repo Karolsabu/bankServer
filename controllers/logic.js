@@ -53,6 +53,8 @@
 // //onnil koodutghal undel object ayi create chya {} exportn
 
 //here we write the logic of the file
+//import jsonwebtoken
+const jwt=require('jsonwebtoken')
 
 //import model
 const clients = require("../models/modelcollection");
@@ -95,7 +97,125 @@ const register = (req, res) => {
     }
   });
 };
+//logic for login
+const login=(req,res)=>{
+  const{acno,psw}=req.body
+  clients.findOne({acno,psw}).then(client=>{
+    if(client){
+      //generate token(create chyan)
+      //unique ayitte ullth tokn generate chyn and istam ulla stringand no spcl character
+      var token=jwt.sign({acno},"secretkey123")
+      //client objeiltele token keyword =token akki
+      //client["token"]=token
+      res.status(200).json({
+        acno:client.acno,
+      uname:client.uname,//--error
+      token
+      })
+      
+    }
+    else{
+     res.status(401).json("incorrect password or account number")
+    }
+  })
+}
+//logic to get profile data
+const getProfile=(req,res)=>{
+//access acno params from url req
+const{acno}=req.params
+clients.findOne({acno}).then(client=>{
+if(client){
+res.status(200).json({
+  acno:client.acno,
+  uname:client.uname
+})
+}
+else{
+  res.status(401).json("user not exist")
+
+}
+})
+}
+//logic to get balance details
+const getBalance=(req,res)=>{
+  //access acno params from url req
+  const{acno}=req.params
+  clients.findOne({acno}).then(client=>{
+    if(client){
+     res.status(200).json({
+      acno:client.acno,
+      balance:client.balance,
+      uname:client.uname
+     })
+    }
+    else{
+      res.status(401).json("user not exist")
+
+    }
+  })
+}
+//logic for money transfer
+const moneyTransfer=(req,res)=>{
+  //access all data from body
+  const{fromAcno,toAcno,psw,amount,date}=req.body
+  //convert amount to number
+  var amnt=parseInt(amount)
+  //check from user in db
+  clients.findOne({acno:fromAcno,psw}).then(fromuser=>{
+    if (fromuser){
+         //check touser
+         clients.findOne({acno:toAcno}).then(touser=>{
+          if(touser){
+            //from balance check
+            if(amnt<=fromuser.balance){
+              fromuser.balance-=amnt
+              fromuser.transactions.push({type:'DEBIT',amount:amnt,date,user:touser.uname})
+              fromuser.save()
+
+              touser.balance+=amnt
+              touser.transactions.push({type:'CREDIT',amount:amnt,date,user:fromuser.uname})
+              touser.save()
+              res.status(200).json({message:"Transaction success"})
+            }
+            else{
+              res.status(401).json({message:"Insufficient Balance"})
+            }
+          }
+          else{
+            res.status(401).json({message:"Invalid credit credentials"})
+          }
+         })
+    }
+    else{
+      res.status(401).json({message:"Invalid debit credentials"})
+    }
+  })
+}
+//logic to transaction history
+const history=(req,res)=>{
+  const {acno}=req.params
+  clients.findOne({acno}).then(user=>{
+    if(user){
+     res.status(200).json(user.transactions)
+    }
+    else{
+      res.status(401).json("user not exist")
+    }
+  })
+}
+//logic to delete account
+const deleteac=(req,res)=>{
+  const{acno}=req.params
+  clients.deleteOne({acno}).then(user=>{
+    if(user){
+      res.status(200).json("Account deleted successfully")
+    }
+    else{
+      res.status(401).json("user not exist")
+    }
+  })
+}
 
 module.exports = {
-  register,
+  register,login,getProfile,getBalance,moneyTransfer,history,deleteac
 }
